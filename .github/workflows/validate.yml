@@ -34,6 +34,9 @@ jobs:
       - name: Start local gateway and services
         run: docker compose -f app/compose.yaml up --build --wait --wait-timeout 180
       - run: python scripts/smoke_gateway.py
+      - name: Show gateway and service logs on failure
+        if: failure()
+        run: docker compose -f app/compose.yaml logs --no-color --tail 100
       - name: Stop local gateway and services
         if: always()
         run: docker compose -f app/compose.yaml down --volumes
