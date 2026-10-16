@@ -29,8 +29,8 @@ jobs:
       - run: python scripts/check_template.py
       - name: Validate Kong declarative configurations
         run: |
-          docker run --rm -v "$PWD/app/kong.yaml:/config/kong.yaml:ro" kong:3.9.4@sha256:8485cabdadb0320212baf1b3f3f47ab293438a61691d198154ccd899d5aabb65 kong config parse /config/kong.yaml
-          docker run --rm -v "$PWD/gitops/apps/base/kong/kong.yaml:/config/kong.yaml:ro" kong:3.9.4@sha256:8485cabdadb0320212baf1b3f3f47ab293438a61691d198154ccd899d5aabb65 kong config parse /config/kong.yaml
+          docker run --rm -e KONG_DATABASE=off -v "$PWD/app/kong.yaml:/config/kong.yaml:ro" kong:3.9.4@sha256:8485cabdadb0320212baf1b3f3f47ab293438a61691d198154ccd899d5aabb65 kong config parse /config/kong.yaml
+          docker run --rm -e KONG_DATABASE=off -v "$PWD/gitops/apps/base/kong/kong.yaml:/config/kong.yaml:ro" kong:3.9.4@sha256:8485cabdadb0320212baf1b3f3f47ab293438a61691d198154ccd899d5aabb65 kong config parse /config/kong.yaml
       - name: Start local gateway and services
         run: docker compose -f app/compose.yaml up --build --wait --wait-timeout 180
       - run: python scripts/smoke_gateway.py
