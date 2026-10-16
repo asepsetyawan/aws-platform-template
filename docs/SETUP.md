@@ -1,14 +1,14 @@
-# Setup dari repository kosong ke endpoint AWS
+# Setup: from a repository to an AWS endpoint
 
-Semua command dimulai dari root repository. Siapkan tools yang disebut di README. AWS resource, NAT gateway, EKS, RDS, telemetry storage, dan traffic berbiaya.
+Run all commands from the repository root. Install the tools listed in the README. AWS resources, NAT gateways, EKS, RDS, telemetry storage, and traffic incur charges.
 
-## 1. Konfigurasi organisasi dan HCP
+## 1. Organization and HCP configuration
 
-Gunakan akun prod terpisah; dev/staging dapat dimulai di akun non-prod dengan state dan cluster berbeda. Siapkan public Route53 hosted zone yang dimiliki akun target. Untuk domain/zone terpusat lintas akun, provider alias dan trust DNS harus disesuaikan; template default mengelola DNS dalam akun workload.
+Use a separate production account; dev/staging can initially share a non-production account with separate state and clusters. Prepare a public Route53 hosted zone owned by the target account. Centralized domains/zones across accounts require changes to provider aliases and DNS trust; the default template manages DNS in the workload account.
 
-Buat enam VCS-backed HCP workspaces sesuai `platform/hcp-workspaces.yaml.example`, working directory persis, Terraform 1.13.4, auto-apply disabled, approval/team access sesuai risiko. Atur AWS dynamic credentials seperti [SECURITY.md](SECURITY.md). Semua input Terraform diisi sebagai HCP Terraform variables. `terraform.tfvars.example` adalah referensi input, bukan credentials.
+Create six VCS-backed HCP workspaces using `platform/hcp-workspaces.yaml.example`, with the exact working directories, Terraform 1.13.4, auto-apply disabled, and appropriate approval/team access. Configure AWS dynamic credentials as described in [SECURITY.md](SECURITY.md). Set all Terraform inputs as HCP Terraform variables. `terraform.tfvars.example` documents inputs; it does not contain credentials.
 
-Untuk CLI-driven execution saat bootstrap organisasi:
+For CLI-driven execution during organization bootstrap:
 
 ```bash
 export TF_CLOUD_ORGANIZATION=YOUR_HCP_ORG
@@ -16,9 +16,9 @@ terraform login
 terraform -chdir=iac/environments/dev/platform init
 ```
 
-Untuk VCS-backed workspace, gunakan PR/speculative plan dan confirm apply di HCP UI. Jangan mencampur orchestrator yang sama-sama auto-apply. Copy contoh tfvars hanya jika menggunakan CLI/local variable workflow yang sesuai; remote VCS runs tidak membaca file ignored yang hanya ada di laptop.
+For VCS-backed workspaces, use PR/speculative plans and confirm applies in the HCP UI. Avoid multiple orchestrators independently auto-applying the same configuration. Copy example tfvars only for an appropriate CLI/local-variable workflow; remote VCS runs cannot read ignored files that exist only on your laptop.
 
-Isi EKS version dari versi yang didukung region:
+Select an EKS version supported in the target region:
 
 ```bash
 aws eks describe-cluster-versions --region ap-southeast-1
@@ -26,30 +26,30 @@ aws rds describe-db-engine-versions --engine postgres --region ap-southeast-1 --
 aws eks describe-addon-versions --kubernetes-version YOUR_EKS_MINOR --region ap-southeast-1
 ```
 
-Pin addon versions dan cocokkan cluster-autoscaler image minor dengan EKS. Contoh tests memakai versi fiktif/representatif untuk evaluasi schema; bukan rekomendasi versi deploy.
+Pin addon versions and match the cluster-autoscaler image minor version to EKS. Tests use fictional/representative versions for schema evaluation; they are not deployment version recommendations.
 
-Isi root platform `account_id`, region, domain `origin.dev.api.yourdomain.com`, hosted zone ID, IAM admin role ARN, API allowlist `/32`, EKS/Postgres version, dan addon map. HCP plan harus memuat hanya resource environment target. HCP output `platform` memuat cluster, VPC, `ecr_repository_url` (api), `catalog_ecr_repository_url`, buckets, certificate, dan operations SNS topic.
+Populate the platform root `account_id`, region, domain `origin.dev.api.yourdomain.com`, hosted zone ID, IAM admin role ARN, API `/32` allowlist, EKS/Postgres versions, and addon map. The HCP plan must contain only resources for the target environment. The HCP `platform` output includes the cluster, VPC, `ecr_repository_url` (api), `catalog_ecr_repository_url`, buckets, certificate, and operations SNS topic.
 
-## 2. Akses cluster dan bootstrap platform
+## 2. Cluster access and platform bootstrap
 
-Login AWS sebagai principal yang ada di EKS access entry, lalu:
+Log in to AWS as a principal configured in an EKS access entry, then run:
 
 ```bash
 aws eks update-kubeconfig --region ap-southeast-1 --name aws-template-dev --alias aws-template-dev
 kubectl --context aws-template-dev get nodes
 ```
 
-Isi `platform/argocd.yaml` dengan URL Argo CD, OIDC/Dex config, dan RBAC untuk group platform. Secret OIDC client diletakkan pada `argocd-secret` lewat prosedur secret management organisasi. Admin lokal dinonaktifkan; installer menolak config default tanpa SSO. Service Argo tetap ClusterIP: akses awal dengan port-forward/VPN; rancang private ingress untuk operasi normal.
+Populate `platform/argocd.yaml` with the Argo CD URL, OIDC/Dex configuration, and platform group RBAC. Store the OIDC client secret in `argocd-secret` through your organization's secret management process. Local administrator access is disabled; the installer rejects the default configuration without SSO. Argo remains a ClusterIP Service: use port-forwarding/VPN initially and design a private ingress for normal operations.
 
 ```bash
 bash scripts/bootstrap-platform.sh aws-template-dev aws-template-dev ap-southeast-1 vpc-YOUR_ID vYOUR_EKS_MINOR.PATCH
 ```
 
-Chart versions dan checksum ada di `platform/charts.lock.yaml`. Installer mengunduh file terverifikasi ke `.generated/charts/`. Daemon EBS CSI dan Pod Identity agent dibuat Terraform sebelum Helm. Cluster Autoscaler memakai role/service account yang telah disiapkan serta tag ASG discovery.
+Chart versions and checksums are recorded in `platform/charts.lock.yaml`. The installer downloads verified archives to `.generated/charts/`. Terraform provisions EBS CSI and the Pod Identity agent before Helm installation. Cluster Autoscaler uses the prepared role/service account and ASG discovery tags.
 
-## 3. Observability dan alert receiver
+## 3. Observability and alert receiver
 
-Buat namespace dan credential secrets menggunakan file lokal aman. Jangan commit password/webhook:
+Create the namespace and credential secrets using secure local files. Do not commit passwords or webhooks:
 
 ```bash
 kubectl --context aws-template-dev create namespace observability
@@ -61,7 +61,7 @@ kubectl --context aws-template-dev -n observability create secret generic platfo
   --from-file=alertmanager.yaml=observability/alertmanager.yaml.example
 ```
 
-Contoh receiver membutuhkan endpoint yang menerima payload webhook Alertmanager; URL Slack incoming-webhook tidak langsung kompatibel. Ganti konfigurasi receiver jika menggunakan PagerDuty/Slack atau integrasi lainnya. File URL jangan mengandung newline tak diinginkan.
+The example receiver requires an endpoint that accepts Alertmanager webhook payloads; a Slack incoming-webhook URL is not directly compatible. Change the receiver configuration for PagerDuty/Slack or other integrations. Ensure the URL file has no unintended newline.
 
 ```bash
 python scripts/install-observability.py --context aws-template-dev --region ap-southeast-1 \
@@ -70,23 +70,23 @@ kubectl --context aws-template-dev -n observability get pods
 kubectl --context aws-template-dev -n observability port-forward svc/monitoring-grafana 3000:80
 ```
 
-Verifikasi Prometheus targets Kong, API dan catalog, JSON logs di Loki, trace Kong → REST → gRPC di Tempo, CloudWatch datasource, dan real test notification. SNS topic operasi RDS perlu subscription/integrasi on-call tersendiri dan konfirmasi endpoint; pembuatan topic tidak berarti alert sudah diterima.
+Verify Prometheus targets for Kong, API, and catalog; Go JSON logs in Loki; Kong → REST → gRPC traces in Tempo; the CloudWatch datasource; and a real test notification. The RDS operations SNS topic needs a separate on-call subscription/integration and endpoint confirmation; creating a topic does not prove alert delivery.
 
-## 4. Build image dan GitOps
+## 4. Image builds and GitOps
 
-Siapkan GitHub environment variables dan AWS OIDC image publisher role sesuai SECURITY.md. Jalankan **Build and publish Go services** pada main. CI matrix menguji Go, membangun satu image amd64 per service (`api` dan `catalog`), memindainya, lalu push masing-masing image ke ECR dengan immutable commit-SHA tag. Atur `ECR_REPOSITORY_URL` untuk api dan `ECR_CATALOG_REPOSITORY_URL` untuk catalog.
+Configure GitHub environment variables and the AWS OIDC image publisher role as described in SECURITY.md. Run **Build and publish Go services** on main. The CI matrix tests Go, builds one amd64 image per service (`api` and `catalog`), scans it, and pushes each image to ECR with an immutable commit-SHA tag. Set `ECR_REPOSITORY_URL` for api and `ECR_CATALOG_REPOSITORY_URL` for catalog.
 
-Gunakan digest hasil build untuk workflow **Propose image promotion** (atau `python scripts/promote.py dev api ECR_API_REPOSITORY sha256:DIGEST` atau `python scripts/promote.py dev catalog ECR_CATALOG_REPOSITORY sha256:DIGEST`). Pilih input `service=api` atau `catalog`; script hanya mengganti image service itu pada satu overlay. Workflow membuka PR. Ulangi untuk image service lainnya dan pertahankan kompatibilitas Protobuf selama rollout bertahap. Review dan merge. Untuk pull lintas akun, siapkan ECR repository policy atau copy manifest/image yang sama ke repository tujuan dan verifikasi digest.
+Use the resulting digest with **Propose image promotion** (or `python scripts/promote.py dev api ECR_API_REPOSITORY sha256:DIGEST` or `python scripts/promote.py dev catalog ECR_CATALOG_REPOSITORY sha256:DIGEST`). Select `service=api` or `catalog`; the script changes only that service's image in one overlay. The workflow opens a PR. Repeat for the other service and maintain Protobuf compatibility during staged rollouts. Review and merge. For cross-account pulls, configure an ECR repository policy or copy the same manifest/image to the destination repository and verify its digest.
 
-Edit overlay environment:
+Edit the environment overlay:
 
-- `kustomization.yaml`: dua repository nyata dan digest `api`/`catalog` yang sudah diuji.
-- `ingress.yaml`: origin domain, regional ACM certificate ARN, CloudFront origin-facing managed prefix list ID dari output platform.
-- `gitops/argocd/ENV/{project,application}.yaml`: URL repository nyata.
+- `kustomization.yaml`: actual repositories and tested `api`/`catalog` digests.
+- `ingress.yaml`: origin domain, regional ACM certificate ARN, and CloudFront origin-facing managed prefix list ID from platform outputs.
+- `gitops/argocd/ENV/{project,application}.yaml`: actual repository URL.
 
-Review [konfigurasi Kong](KONG.md), image version/digest, resource sizing, dan limit per replica. Argo AppProject mengizinkan ConfigMap; Kustomize memberi hash nama konfigurasi agar perubahan route/plugin memicu rolling update.
+Review [Kong configuration](KONG.md), image version/digest, resource sizing, and limits per replica. The Argo AppProject permits ConfigMaps; Kustomize adds a hash to the configuration name so route/plugin changes trigger a rolling update.
 
-Sebelum Argo sync, buat namespace aplikasi dan sediakan dua TLS secrets. Untuk latihan **dev saja**, script berikut membuat CA lokal dan certificate tujuh hari:
+Before Argo sync, create the application namespace and provision two TLS secrets. For **dev practice only**, the following script creates a local CA and seven-day certificate:
 
 ```bash
 kubectl --context aws-template-dev apply -f gitops/apps/overlays/dev/namespace.yaml
@@ -97,7 +97,7 @@ kubectl --context aws-template-dev -n platform-dev create secret generic catalog
   --from-file=ca.crt=.generated/tls/dev/ca.crt
 ```
 
-Production memakai PKI/cert-manager/secret management yang disetujui organisasi, dengan SAN `catalog` (atau ubah `GRPC_SERVER_NAME` konsisten) dan rotasi terkelola. Kubernetes tidak mengaktifkan `GRPC_INSECURE`. CA hanya dimount API; private server key hanya dimount catalog. Secrets dikelola operator/platform di luar Application Argo ini. Lakukan rollout catalog setelah rotasi leaf certificate dan rollout kedua service saat rotasi CA karena file TLS dibaca saat startup.
+Production requires organization-approved PKI/cert-manager/secret management, SAN `catalog` (or a consistent change to `GRPC_SERVER_NAME`), and managed rotation. Kubernetes does not enable `GRPC_INSECURE`. Only API mounts the CA; only catalog mounts the private server key. Operators/platform tooling manage secrets outside this Argo Application. Roll catalog after leaf certificate rotation and both services after CA rotation because TLS files are read at startup.
 
 ```bash
 python scripts/preflight.py dev
@@ -109,25 +109,25 @@ kubectl --context aws-template-dev -n platform-dev rollout status deployment/kon
 kubectl --context aws-template-dev -n platform-dev get ingress api
 ```
 
-Argo CD harus punya repo access read-only untuk private repo, dikonfigurasi lewat secret. Deployment tidak menyatakan replicas agar HPA mengelola scale. Merge PR ke overlay akan di-sync otomatis; approval produksi ada pada protected Git review/environment workflow yang dikonfigurasi organisasi, bukan pada tombol apply HCP untuk aplikasi.
+Argo CD needs read-only repository access for private repositories, configured through a secret. Deployments omit replica counts so HPA owns scaling. Merged overlay PRs sync automatically; production application approval is enforced through the organization's protected Git review/environment workflow, rather than HCP's infrastructure apply approval.
 
-## 5. Edge dan verifikasi
+## 5. Edge configuration and verification
 
-Setelah controller menghasilkan internal ALB, ambil ARN/DNS/hosted-zone ID melalui `aws elbv2 describe-load-balancers` dan isi root edge. Isi public domain serta origin domain yang cocok regional certificate. CloudFront VPC origin membutuhkan dukungan region dan VPC dengan internet gateway; template sudah menyediakan IGW dan private nodes. Review limit/security groups prefix list dan status VPC origin.
+Once the controller creates the internal ALB, retrieve its ARN/DNS/hosted-zone ID using `aws elbv2 describe-load-balancers` and populate the edge root. Set the public domain and an origin domain matching the regional certificate. CloudFront VPC origins require regional support and a VPC with an internet gateway; the template provides an IGW and private nodes. Review prefix list/security group limits and VPC origin status.
 
-Apply workspace edge setelah plan/review, kemudian:
+After plan review, apply the edge workspace, then run:
 
 ```bash
 curl --fail https://dev.api.YOUR_DOMAIN/api/products/sku-001
 curl --fail https://dev.api.YOUR_DOMAIN/api/hello
 ```
 
-Endpoint `/metrics` dan health tidak diekspos Ingress karena routing hanya `/api/`. Tambahkan synthetic probe memakai blackbox exporter atau layanan monitoring eksternal; `observability/synthetic-probe.yaml.example` adalah contoh yang belum diaktifkan installer.
+Health and `/metrics` endpoints are not exposed through the Ingress because only `/api/` is routed. Add a synthetic probe using blackbox exporter or external monitoring; `observability/synthetic-probe.yaml.example` is an example and is not enabled by the installer.
 
-## 6. Staging/prod
+## 6. Staging and production
 
-Gunakan revisi kode yang sama, variables/workspace target, certificate/domain, credentials, serta alias kubectl context berbeda. Buat plan baru per environment/layer. Prod memiliki private-only API, Multi-AZ RDS, dan deletion protection. Operator bootstrap membutuhkan akses jaringan privat terlebih dahulu.
+Use the same code revision with the target variables/workspace, certificate/domain, credentials, and a distinct kubectl context alias. Create a new plan for each environment/layer. Prod has a private-only API, Multi-AZ RDS, and deletion protection. Bootstrap operators require private network access first.
 
-Jalankan capacity/load test, zone failure drill, alert delivery test, dan restore test sebelum menerima production traffic. Isi SLO/RTO/RPO yang disepakati; angka SLO dalam repo adalah contoh.
+Run capacity/load tests, zone failure drills, alert delivery tests, and restore tests before accepting production traffic. Set agreed SLO/RTO/RPO objectives; repository SLO values are examples.
 
 For promotion PRs, configure the short-lived GitHub App token described in SECURITY.md (`PROMOTION_APP_ID`, `PROMOTION_APP_PRIVATE_KEY`). The template does not create the App or change repository protections automatically.

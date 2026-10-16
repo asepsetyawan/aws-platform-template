@@ -1,12 +1,12 @@
 # AWS Platform — monorepo template
 
-Satu repository untuk **IaC, aplikasi, reliability, dan observability**, dengan environment **dev, staging, prod**. Template mengikuti alur **HCP Terraform untuk infrastruktur, GitHub Actions untuk CI/build, dan Argo CD untuk aplikasi Kubernetes**.
+One repository for **IaC, applications, reliability, and observability**, with **dev, staging, and prod** environments. The delivery workflow uses **HCP Terraform for infrastructure, GitHub Actions for CI and image builds, and Argo CD for Kubernetes applications**.
 
 ```text
-.github/workflows/        Validasi, build/scan/push image, PR promosi digest
+.github/workflows/        Validation, image build/scan/push, digest promotion PRs
 app/                     Go REST API + gRPC catalog, Protobuf, Docker, integration tests
 iac/
-  modules/platform/      VPC 3 AZ, NAT per AZ, EKS, ECR, RDS, identity, audit
+  modules/platform/      Three-AZ VPC, NAT per AZ, EKS, ECR, RDS, identity, audit
   modules/edge/          CloudFront VPC origin, WAF, ACM, Route53
   environments/
     dev/{platform,edge}/
@@ -15,19 +15,19 @@ iac/
 gitops/
   apps/base/             Deployment, Service, HPA, PDB, NetworkPolicy
   apps/overlays/         dev/staging/prod + Ingress + image digest
-  argocd/                AppProject dan Application per environment
+  argocd/                AppProject and Application per environment
 platform/                Helm values, chart/checksum lock, HCP workspace inventory
 observability/           Metrics, logs, traces, alerts, dashboard
 reliability/             SLO, load test, incident/recovery runbooks
 scripts/                 Bootstrap, chart validation, preflight, image promotion
-docs/                    Setup, security, operasi, status validasi
+docs/                    Setup, security, operations, validation status
 ```
 
-## Arsitektur
+## Architecture
 
 ![AWS Production Reference Architecture](docs/architecture/aws-production-reference.png)
 
-[Perbesar gambar infrastruktur](docs/architecture/aws-production-reference.png). Ilustrasi raster sebelumnya belum memuat Kong; diagram di bawah menunjukkan alur aplikasi terbaru.
+[View the infrastructure diagram](docs/architecture/aws-production-reference.png). The earlier raster illustration does not include Kong; the diagram below shows the current application flow.
 
 ```mermaid
 flowchart LR
@@ -66,27 +66,27 @@ flowchart LR
   Metrics --> AM[Alertmanager / on-call]
 ```
 
-ALB dibuat AWS Load Balancer Controller melalui Ingress; edge Terraform dibuat sesudah ALB tersedia. Berbeda dari ilustrasi public-origin sebelumnya, template memakai **internal ALB + CloudFront VPC origin** sehingga origin tidak terbuka langsung ke internet. Kubernetes Service mewakili backend aplikasi; ALB memakai IP target pod.
+AWS Load Balancer Controller creates the ALB from the Ingress; the edge Terraform configuration is applied after the ALB is available. The template uses an **internal ALB + CloudFront VPC origin**, keeping the origin off the public internet. The earlier illustration shows a public origin. Kubernetes Services identify application backends; the ALB targets pod IPs.
 
-## Yang tersedia
+## Included components
 
-| Bagian | Implementasi template |
+| Area | Template implementation |
 |---|---|
-| Network | 3 public + 3 private subnet; NAT per AZ; CIDR berbeda per environment |
-| EKS | Managed nodes, private endpoint, API public hanya dev/staging dengan allowlist; prod private-only |
-| Identity | EKS access entries, Pod Identity untuk ALB controller, autoscaler, EBS, Loki, Tempo, Grafana |
-| Data | RDS opsional: dev off, staging single-AZ, prod Multi-AZ; encrypted, managed admin password, PITR |
-| Edge | TLS di CloudFront dan origin; WAF managed rules; private origin; Route53 |
-| API Gateway | Kong OSS DB-less, declarative routes di Git, rate limit per replica, Prometheus dan OTel; Admin API off |
-| App | Go `api` menyediakan REST; Go `catalog` menyediakan gRPC internal, TLS, health, metrics, JSON logs, dan distributed traces |
-| Reliability | HPA/PDB per service, topology spread, rolling updates, bounded RPC deadline, dependency readiness, graceful drain |
+| Network | Three public and three private subnets; NAT per AZ; separate CIDRs per environment |
+| EKS | Managed nodes, private endpoint; allowlisted public API access in dev/staging only; prod private-only |
+| Identity | EKS access entries; Pod Identity for ALB controller, autoscaler, EBS, Loki, Tempo, Grafana |
+| Data | Optional RDS: disabled in dev, single-AZ in staging, Multi-AZ in prod; encryption, managed admin password, PITR |
+| Edge | TLS at CloudFront and origin; WAF managed rules; private origin; Route53 |
+| API Gateway | Kong OSS DB-less, declarative routes in Git, rate limit per replica, Prometheus and OTel; Admin API disabled |
+| App | Go `api` exposes REST; Go `catalog` provides internal gRPC, TLS, health checks, metrics, JSON logs, and distributed traces |
+| Reliability | HPA/PDB per service, topology spread, rolling updates, bounded RPC deadline, dependency readiness, graceful draining |
 | Observability | Prometheus/Grafana, Loki + Alloy, Tempo + OTel, alert rules, dashboard, CloudWatch datasource |
-| Audit | CloudTrail multi-region + S3 per environment, EKS audit logs |
-| Delivery | CI matrix membangun dua image; ECR per service; promosi digest per service lewat PR; HCP approval; Argo sync |
+| Audit | Multi-region CloudTrail + S3 per environment, EKS audit logs |
+| Delivery | CI matrix builds two images; ECR per service; digest promotion PRs per service; HCP approval; Argo sync |
 
-Template ini perlu diisi dengan konfigurasi organisasi sebelum deployment. Tidak ada deployment AWS yang dijalankan saat pembuatan. RDS belum dipakai aplikasi demo; database user, migrasi, dan integrasi aplikasi adalah extension point.
+Populate the template with your organization's configuration before deployment. No AWS deployment was performed when creating it. The demo application does not use RDS yet; database users, migrations, and application integration are extension points.
 
-## Dua service Go
+## Two Go services
 
 ```text
 Public REST: GET /api/products/sku-001
@@ -97,11 +97,11 @@ api :8080  ── GetProduct (gRPC TLS, deadline 800 ms) ──▶ catalog :5005
                                                        internal only
 ```
 
-Kontrak ada di [catalog.proto](app/api/catalog/v1/catalog.proto) dan [OpenAPI](app/api/openapi.yaml). Data contoh `sku-001`/`sku-002` masih in-memory. Error gRPC dipetakan ke HTTP 400/404/502/503/504 tanpa membocorkan detail backend. Trace context dipropagasikan lintas REST dan gRPC.
+Contracts are defined in [catalog.proto](app/api/catalog/v1/catalog.proto) and [OpenAPI](app/api/openapi.yaml). Sample products `sku-001`/`sku-002` are stored in memory. gRPC errors map to HTTP 400/404/502/503/504 without exposing backend details. Trace context propagates across REST and gRPC.
 
-## Mulai lokal
+## Run locally
 
-Prasyarat aplikasi: Go 1.27.2 atau Docker Compose. Python 3.10+ hanya diperlukan helper platform. Kubernetes/Terraform membutuhkan kubectl, Helm 3, Terraform >=1.9 <2, dan AWS CLI.
+Application prerequisites: Go 1.27.2 or Docker Compose. Python 3.10+ is needed only for platform helpers. Kubernetes/Terraform workflows require kubectl, Helm 3, Terraform >=1.9 <2, and AWS CLI.
 
 ```bash
 cd app
@@ -111,7 +111,7 @@ cd ..
 docker compose -f app/compose.yaml up --build
 ```
 
-Di terminal lain:
+In another terminal:
 
 ```bash
 curl --fail http://localhost:8080/api/products/sku-001
@@ -119,9 +119,9 @@ curl --fail http://localhost:8080/api/hello
 python scripts/smoke_gateway.py
 ```
 
-Compose hanya mempublish proxy Kong ke localhost:8080; api dan catalog tidak memiliki host port. Konfigurasi dan operasi gateway ada di [KONG.md](docs/KONG.md). Plaintext gRPC diizinkan eksplisit untuk Compose lokal. Kubernetes memakai TLS + NetworkPolicy. Panduan menjalankan dua binary tanpa Docker, konfigurasi TLS, health, dan Protobuf generation ada di [app/README.md](app/README.md).
+Compose publishes only the Kong proxy on localhost:8080; api and catalog have no host ports. Gateway configuration and operations are documented in [KONG.md](docs/KONG.md). Plaintext gRPC is explicitly enabled for local Compose. Kubernetes uses TLS + NetworkPolicy. See [app/README.md](app/README.md) for running the two binaries without Docker, TLS configuration, health checks, and Protobuf generation.
 
-Untuk helper platform:
+For platform helpers:
 
 ```bash
 python -m venv .venv
@@ -131,44 +131,43 @@ python scripts/check_template.py
 python -m unittest discover -s scripts/tests -v
 ```
 
-## Urutan deployment
+## Deployment sequence
 
-Panduan lengkap: [SETUP.md](docs/SETUP.md).
+Full instructions: [SETUP.md](docs/SETUP.md).
 
-1. Siapkan akun AWS, domain/hosted zone, HCP organization/workspaces, dan cloud identities.
-2. Isi variables root **platform** untuk dev. Review plan dan apply melalui HCP Terraform.
-3. Operator melakukan bootstrap platform/observability, lalu menyediakan TLS secrets catalog dan CA untuk API.
-4. CI membangun, memindai, dan push image `api` serta `catalog` ke ECR masing-masing. Promosi digest memilih satu service dan environment per PR.
-5. Review image Kong yang dikunci versinya, lalu isi dua image digest aplikasi, repo URL, origin host, certificate ARN, prefix list ID. Jalankan preflight, apply Argo project/application.
-6. Setelah internal ALB tersedia, isi variables root **edge**; review plan dan apply.
-7. Verifikasi HTTPS end-to-end, telemetry, notifikasi alert, load test, dan failure/recovery drill. Promosikan revisi yang diuji ke staging/prod dengan plan masing-masing.
+1. Prepare AWS accounts, domain/hosted zone, HCP organization/workspaces, and cloud identities.
+2. Populate the dev **platform** root variables. Review the plan and apply through HCP Terraform.
+3. Bootstrap the platform and observability stack, then provision catalog TLS secrets and the API's trusted CA.
+4. CI builds, scans, and pushes `api` and `catalog` images to their respective ECR repositories. Each digest promotion PR selects one service and environment.
+5. Review the pinned Kong image, then populate both application image digests, repository URL, origin host, certificate ARN, and prefix list ID. Run preflight and apply the Argo project/application.
+6. Once the internal ALB is available, populate the **edge** root variables; review the plan and apply.
+7. Verify end-to-end HTTPS, telemetry, alert delivery, load tests, and failure/recovery drills. Promote the tested revision to staging/prod with a separate plan for each target.
 
-**State platform dan edge terpisah per environment.** Jangan memakai saved plan/state dari environment lain. Satu perubahan shared module dapat memengaruhi beberapa workspace; configure trigger paths dan review semua plan terdampak.
+**Platform and edge state are separate for each environment.** Never reuse a saved plan/state from another environment. A shared module change can affect several workspaces; configure trigger paths and review every affected plan.
 
-## Kontrol produksi dan batas template
+## Production controls and template limitations
 
-- Prod API private membutuhkan VPN/private runner/operator host. Pipeline GitHub tidak diberi akses kubectl admin.
-- SSO Argo CD, HCP approval/policy, GitHub branch/environment protections, on-call receiver, dan organization IAM guardrails harus dikonfigurasi di akun masing-masing. Bootstrap menolak Argo values tanpa SSO.
-- Dua service contoh stateless ini belum memiliki autentikasi pengguna atau database integration. Tambahkan sesuai kebutuhan produk sebelum memproses data pelanggan.
-- Prometheus dan Alertmanager memiliki dua replica; Loki tiga. **Tempo satu replica** dan Grafana single replica/PVC dalam baseline ini. Untuk kebutuhan observability HA yang lebih tinggi, gunakan Tempo distributed/managed tracing, Grafana HA dengan shared external DB, dan Prometheus remote storage/deduplication.
-- Collector queue memory-backed; restart dapat kehilangan span. Logs/traces memerlukan kebijakan sampling, redaction, retention, serta kapasitas yang sesuai data nyata.
-- CloudTrail archive ada di akun workload; central immutable audit account, WAF/CloudFront/ALB access logs, dan regional backup replication/second-region runtime perlu dilengkapi sesuai kebutuhan. RDS PITR tidak memberikan regional disaster recovery sendiri.
-- Service versions dikunci pada lock files, tetapi review security updates secara berkala. Pin base container image digest dan addon versions sebelum release produksi. Charts adalah versi yang berhasil dirender, bukan bukti kompatibilitas runtime dengan seluruh versi EKS.
-- Prod RDS deletion protection aktif; bucket dan ECR tidak force-delete. Decommission mengikuti [OPERATIONS.md](docs/OPERATIONS.md), termasuk snapshot dan retensi data.
+- The private prod API requires a VPN, private runner, or operator host. GitHub pipelines do not receive kubectl administrator access.
+- Configure Argo CD SSO, HCP approvals/policies, GitHub branch/environment protections, on-call receivers, and organization IAM guardrails in the relevant accounts. Bootstrap rejects Argo values without SSO.
+- The two stateless example services do not implement user authentication or database integration. Add these according to product requirements before processing customer data.
+- Prometheus and Alertmanager each have two replicas; Loki has three. The baseline has **one Tempo replica** and one Grafana replica/PVC. For stronger observability HA, use distributed Tempo/managed tracing, Grafana HA with a shared external database, and Prometheus remote storage/deduplication.
+- Collector queues are memory-backed; restarts can lose spans. Set sampling, redaction, retention, and capacity policies for actual log/trace volumes.
+- CloudTrail archives are stored in workload accounts. Add a central immutable audit account, WAF/CloudFront/ALB access logs, regional backup replication, and a second-region runtime as required. RDS PITR alone does not provide regional disaster recovery.
+- Service versions are pinned in lock files; review security updates regularly. Pin base container image digests and addon versions before production releases. Successfully rendered charts do not establish runtime compatibility with every EKS version.
+- Prod RDS deletion protection is enabled; buckets and ECR repositories do not allow force deletion. Follow [OPERATIONS.md](docs/OPERATIONS.md) for decommissioning, snapshots, and data retention.
 
-Lihat [security dan identity](docs/SECURITY.md), [runbooks](reliability/runbooks/), [SLO contoh](reliability/slo.yaml), dan [hasil validasi](docs/VALIDATION.md).
+See [security and identity](docs/SECURITY.md), [runbooks](reliability/runbooks/), [sample SLO](reliability/slo.yaml), and [validation results](docs/VALIDATION.md).
 
-## Jadikan repository sendiri
+## Customize the repository
 
-Folder ini berdiri sendiri. Buat repository dari isinya, lalu ganti `REPLACE_*`, domain, ID akun, URL repo, image digest, CODEOWNERS, dan HCP settings. Direktori `.generated/`, credentials, state, dan tfvars personal tidak ikut version control.
+This directory is self-contained. To reuse it, create a repository from its contents and update `REPLACE_*` values, domains, account IDs, repository URLs, image digests, CODEOWNERS, and HCP settings. `.generated/`, credentials, state, and personal tfvars are excluded from version control.
 
-## Referensi resmi
+## Official references
 
 - [HCP Terraform dynamic credentials](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials)
 - [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html)
 - [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/installation/)
 - [CloudFront VPC origins](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html)
 - [Argo CD GitOps](https://argo-cd.readthedocs.io/en/stable/)
-
 - [Kong DB-less configuration](https://developer.konghq.com/gateway/db-less-mode/)
 - [Kong Prometheus plugin](https://developer.konghq.com/plugins/prometheus/)
