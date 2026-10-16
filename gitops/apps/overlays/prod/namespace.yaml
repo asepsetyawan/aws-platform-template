@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-prod
+  labels:
+    environment: prod
+    pod-security.kubernetes.io/enforce: restricted

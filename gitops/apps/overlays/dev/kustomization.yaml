@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: platform-dev
+resources:
+- ../../base
+- namespace.yaml
+- ingress.yaml
+images:
+- name: platform-api
+  newName: 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/aws-template-dev/api
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+- name: platform-catalog
+  newName: 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/aws-template-dev/catalog
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+patches:
+- target:
+    kind: Deployment
+    name: api
+  patch: "- op: replace\n  path: /spec/template/spec/containers/0/env/0/value\n  value:\
+    \ dev"
+- target:
+    kind: HorizontalPodAutoscaler
+    name: api
+  patch: "- op: replace\n  path: /spec/minReplicas\n  value: 2\n- op: replace\n  path:\
+    \ /spec/maxReplicas\n  value: 6"
+- target:
+    kind: Deployment
+    name: catalog
+  patch: "- op: replace\n  path: /spec/template/spec/containers/0/env/0/value\n  value:\
+    \ dev"
+- target:
+    kind: HorizontalPodAutoscaler
+    name: catalog
+  patch: "- op: replace\n  path: /spec/minReplicas\n  value: 2\n- op: replace\n  path:\
+    \ /spec/maxReplicas\n  value: 6"

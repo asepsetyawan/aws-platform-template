@@ -1,0 +1,19 @@
+# Optional standalone DR workspace example. Copy to .tf only after selecting supported regions,
+# source DB ARN, IAM/KMS permissions, retention, and testing a destination-region restore.
+provider "aws" {
+  alias  = "dr"
+  region = "REPLACE_DESTINATION_REGION"
+  allowed_account_ids = ["REPLACE_ACCOUNT_ID"]
+}
+resource "aws_kms_key" "dr_backup" {
+  provider = aws.dr
+  description = "Destination RDS automated backup encryption"
+  enable_key_rotation = true
+  deletion_window_in_days = 30
+}
+resource "aws_db_instance_automated_backups_replication" "postgres" {
+  provider = aws.dr
+  source_db_instance_arn = "arn:aws:rds:REPLACE_SOURCE_REGION:REPLACE_ACCOUNT_ID:db:aws-template-prod-postgres"
+  kms_key_id = aws_kms_key.dr_backup.arn
+  retention_period = 14
+}

@@ -1,0 +1,77 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 30s
+tests:
+- interval: 30s
+  input_series:
+  - series: api_http_requests_total{namespace="platform-staging",method="GET",route="/api/hello",status="200"}
+    values: 0+98x130
+  - series: api_http_requests_total{namespace="platform-staging",method="GET",route="/api/hello",status="500"}
+    values: 0+2x130
+  alert_rule_test:
+  - eval_time: 62m
+    alertname: ApiFastErrorBudgetBurn
+    exp_alerts:
+    - exp_labels:
+        namespace: platform-staging
+        severity: critical
+        service: platform-api
+      exp_annotations:
+        summary: API is burning the example 99.9% availability error budget
+        runbook: reliability/runbooks/high-error-rate.md
+- interval: 30s
+  input_series:
+  - series: api_http_requests_total{namespace="platform-staging",method="GET",route="/api/hello",status="200"}
+    values: 0+100x130
+  - series: api_http_requests_total{namespace="platform-staging",method="GET",route="/api/hello",status="500"}
+    values: 0+0x130
+  alert_rule_test:
+  - eval_time: 62m
+    alertname: ApiFastErrorBudgetBurn
+    exp_alerts: []
+- interval: 30s
+  input_series:
+  - series: catalog_grpc_requests_total{namespace="platform-staging",method="/catalog.v1.CatalogService/GetProduct",code="OK"}
+    values: 0+9x40
+  - series: catalog_grpc_requests_total{namespace="platform-staging",method="/catalog.v1.CatalogService/GetProduct",code="Unavailable"}
+    values: 0+1x40
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CatalogRPCFailures
+    exp_alerts:
+    - exp_labels:
+        namespace: platform-staging
+        severity: warning
+        service: platform-catalog
+      exp_annotations:
+        summary: Internal catalog gRPC error ratio exceeds 5%
+        runbook: reliability/runbooks/high-error-rate.md
+- interval: 30s
+  input_series:
+  - series: kong_http_requests_total{namespace="platform-prod",code="200",service="platform-api"}
+    values: 0+90x40
+  - series: kong_http_requests_total{namespace="platform-prod",code="503",service="platform-api"}
+    values: 0+10x40
+  - series: up{namespace="platform-prod",service="kong",instance="kong-1"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KongProxyHighErrorRate
+    exp_alerts:
+    - exp_labels:
+        namespace: platform-prod
+        severity: critical
+        service: platform-kong
+      exp_annotations:
+        summary: Kong proxy 5xx ratio exceeds 5%
+        runbook: reliability/runbooks/high-error-rate.md
+  - eval_time: 10m
+    alertname: KongNoHealthyMetricsTargets
+    exp_alerts:
+    - exp_labels:
+        namespace: platform-prod
+        severity: critical
+        service: platform-kong
+      exp_annotations:
+        summary: All Kong metrics targets are down
+        runbook: reliability/runbooks/high-error-rate.md

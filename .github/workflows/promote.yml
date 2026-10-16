@@ -1,0 +1,65 @@
+name: Propose image promotion
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [dev, staging, prod]
+        required: true
+      service:
+        type: choice
+        options: [api, catalog]
+        required: true
+      image_repository:
+        description: ECR repository without tag (shared registry or verified destination copy)
+        type: string
+        required: true
+      image_digest:
+        description: sha256 digest already built, scanned and tested
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  promotion:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Create short-lived promotion token
+        id: promotion-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.PROMOTION_APP_ID }}
+          private-key: ${{ secrets.PROMOTION_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          token: ${{ steps.promotion-token.outputs.token }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: {python-version: '3.13'}
+      - run: pip install -r scripts/requirements.lock
+      - name: Update exactly one service in one overlay
+        env:
+          LAB_ENVIRONMENT: ${{ inputs.environment }}
+          LAB_SERVICE: ${{ inputs.service }}
+          LAB_IMAGE_REPOSITORY: ${{ inputs.image_repository }}
+          LAB_IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          python scripts/promote.py "$LAB_ENVIRONMENT" "$LAB_SERVICE" "$LAB_IMAGE_REPOSITORY" "$LAB_IMAGE_DIGEST"
+      - name: Open reviewable promotion PR
+        env:
+          GH_TOKEN: ${{ steps.promotion-token.outputs.token }}
+          LAB_ENVIRONMENT: ${{ inputs.environment }}
+          LAB_SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          branch="promote/$LAB_SERVICE/$LAB_ENVIRONMENT/$GITHUB_RUN_ID"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -c "$branch"
+          git add "gitops/apps/overlays/$LAB_ENVIRONMENT/kustomization.yaml"
+          git commit -m "Promote $LAB_SERVICE image to $LAB_ENVIRONMENT"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "Promote $LAB_SERVICE to $LAB_ENVIRONMENT" --body "Review immutable image digest, test evidence, and target environment before merging."

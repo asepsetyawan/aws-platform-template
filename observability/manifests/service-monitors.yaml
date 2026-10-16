@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-api
+  namespace: observability
+  labels: {platform-monitor: 'true'}
+spec:
+  namespaceSelector:
+    matchNames: [platform-dev, platform-staging, platform-prod]
+  selector:
+    matchLabels: {app: api}
+  endpoints:
+    - {port: http, path: /metrics, interval: 30s}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-catalog
+  namespace: observability
+  labels: {platform-monitor: 'true'}
+spec:
+  namespaceSelector:
+    matchNames: [platform-dev, platform-staging, platform-prod]
+  selector:
+    matchLabels: {app: catalog}
+  endpoints:
+    - {port: metrics, path: /metrics, interval: 30s}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-kong
+  namespace: observability
+  labels: {platform-monitor: 'true'}
+spec:
+  namespaceSelector:
+    matchNames: [platform-dev, platform-staging, platform-prod]
+  selector:
+    matchLabels: {app: kong}
+  endpoints:
+    - {port: status, path: /metrics, interval: 30s}

@@ -1,0 +1,81 @@
+groups:
+- name: platform-api-slo
+  rules:
+  - record: api:error_ratio:rate5m
+    expr: sum by (namespace) (rate(api_http_requests_total{status=~"5.."}[5m])) /
+      clamp_min(sum by (namespace) (rate(api_http_requests_total[5m])), 0.001)
+  - record: api:error_ratio:rate1h
+    expr: sum by (namespace) (rate(api_http_requests_total{status=~"5.."}[1h])) /
+      clamp_min(sum by (namespace) (rate(api_http_requests_total[1h])), 0.001)
+  - alert: ApiFastErrorBudgetBurn
+    expr: (api:error_ratio:rate5m > 14.4 * 0.001) and (api:error_ratio:rate1h > 14.4
+      * 0.001)
+    for: 2m
+    labels:
+      severity: critical
+      service: platform-api
+    annotations:
+      summary: API is burning the example 99.9% availability error budget
+      runbook: reliability/runbooks/high-error-rate.md
+  - alert: ApiHighLatency
+    expr: histogram_quantile(0.95, sum by (namespace, le) (rate(api_http_request_duration_seconds_bucket[5m])))
+      > 0.5
+    for: 10m
+    labels:
+      severity: warning
+      service: platform-api
+    annotations:
+      summary: API p95 latency exceeds 500 ms
+      runbook: reliability/runbooks/high-latency.md
+  - alert: ApiNoHealthyTargets
+    expr: sum by (namespace) (up{job="api"}) == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: API metrics targets are all down
+      runbook: reliability/runbooks/high-error-rate.md
+- name: platform-catalog
+  rules:
+  - alert: CatalogRPCFailures
+    expr: sum by (namespace) (rate(catalog_grpc_requests_total{code=~"Internal|Unknown|Unavailable|DeadlineExceeded|DataLoss|ResourceExhausted"}[5m]))
+      / clamp_min(sum by (namespace) (rate(catalog_grpc_requests_total[5m])), 0.001)
+      > 0.05
+    for: 5m
+    labels:
+      severity: warning
+      service: platform-catalog
+    annotations:
+      summary: Internal catalog gRPC error ratio exceeds 5%
+      runbook: reliability/runbooks/high-error-rate.md
+  - alert: CatalogHighLatency
+    expr: histogram_quantile(0.95, sum by (namespace, le) (rate(catalog_grpc_request_duration_seconds_bucket[5m])))
+      > 0.3
+    for: 10m
+    labels:
+      severity: warning
+      service: platform-catalog
+    annotations:
+      summary: Catalog gRPC p95 latency exceeds 300 ms
+      runbook: reliability/runbooks/high-latency.md
+- name: platform-kong
+  rules:
+  - alert: KongProxyHighErrorRate
+    expr: sum by (namespace) (rate(kong_http_requests_total{code=~"5.."}[5m])) / clamp_min(sum
+      by (namespace) (rate(kong_http_requests_total[5m])), 0.001) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+      service: platform-kong
+    annotations:
+      summary: Kong proxy 5xx ratio exceeds 5%
+      runbook: reliability/runbooks/high-error-rate.md
+  - alert: KongNoHealthyMetricsTargets
+    expr: sum by (namespace) (up{service="kong"}) == 0
+    for: 2m
+    labels:
+      severity: critical
+      service: platform-kong
+    annotations:
+      summary: All Kong metrics targets are down
+      runbook: reliability/runbooks/high-error-rate.md

@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+spec:
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 180
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: catalog
+  template:
+    metadata:
+      labels:
+        app: catalog
+    spec:
+      serviceAccountName: catalog
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: catalog
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: catalog
+      containers:
+      - name: catalog
+        image: platform-catalog:bootstrap
+        ports:
+        - name: grpc
+          containerPort: 50051
+        - name: metrics
+          containerPort: 9090
+        env:
+        - name: APP_ENV
+          value: dev
+        - name: HTTP_ADDR
+          value: :9090
+        - name: GRPC_ADDR
+          value: :50051
+        - name: GRPC_TLS_CERT_FILE
+          value: /etc/grpc-tls/tls.crt
+        - name: GRPC_TLS_KEY_FILE
+          value: /etc/grpc-tls/tls.key
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel.observability.svc.cluster.local:4318
+        - name: OTEL_SERVICE_NAME
+          value: platform-catalog
+        - name: OTEL_TRACES_SAMPLER_ARG
+          value: '0.1'
+        resources:
+          requests:
+            cpu: 200m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          httpGet:
+            path: /livez
+            port: metrics
+          failureThreshold: 30
+          periodSeconds: 2
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: metrics
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: metrics
+          periodSeconds: 10
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /server
+              - drain
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: grpc-tls
+          mountPath: /etc/grpc-tls
+          readOnly: true
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
+      - name: grpc-tls
+        secret:
+          secretName: catalog-server-tls
+          defaultMode: 288

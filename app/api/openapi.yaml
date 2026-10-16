@@ -1,0 +1,51 @@
+openapi: 3.1.0
+info:
+  title: AWS Go Platform API
+  version: 1.0.0
+paths:
+  /api/products/{id}:
+    get:
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, pattern: '^[a-zA-Z0-9_-]{1,64}$'}
+      responses:
+        '200':
+          description: Product fetched over internal gRPC
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+        '400': {description: Invalid product ID}
+        '404': {description: Product not found}
+        '502': {description: Catalog internal failure}
+        '503': {description: Catalog unavailable}
+        '504': {description: Catalog deadline exceeded}
+  /api/hello:
+    get:
+      operationId: hello
+      responses:
+        '200':
+          description: Welcome and featured product fetched over internal gRPC
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: {type: string}
+                  environment: {type: string}
+                  featured_product: {$ref: '#/components/schemas/Product'}
+        '502': {description: Catalog internal failure}
+        '503': {description: Catalog unavailable}
+        '504': {description: Catalog deadline exceeded}
+components:
+  schemas:
+    Product:
+      type: object
+      required: [id, name, price_cents, currency]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        price_cents: {type: integer, format: int64}
+        currency: {type: string}

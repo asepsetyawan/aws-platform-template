@@ -1,0 +1,85 @@
+name: Validate template
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+      - run: go mod download
+        working-directory: app
+      - run: go test -race -count=1 ./...
+        working-directory: app
+      - run: go vet ./...
+        working-directory: app
+      - run: test -z "$(gofmt -l .)"
+        working-directory: app
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: {python-version: '3.13'}
+      - run: pip install -r scripts/requirements.lock
+      - run: python -m unittest discover -s scripts/tests -v
+      - run: python scripts/check_template.py
+      - name: Validate Kong declarative configurations
+        run: |
+          docker run --rm -v "$PWD/app/kong.yaml:/config/kong.yaml:ro" kong:3.9.4@sha256:8485cabdadb0320212baf1b3f3f47ab293438a61691d198154ccd899d5aabb65 kong config parse /config/kong.yaml
+          docker run --rm -v "$PWD/gitops/apps/base/kong/kong.yaml:/config/kong.yaml:ro" kong:3.9.4@sha256:8485cabdadb0320212baf1b3f3f47ab293438a61691d198154ccd899d5aabb65 kong config parse /config/kong.yaml
+      - name: Start local gateway and services
+        run: docker compose -f app/compose.yaml up --build --wait --wait-timeout 180
+      - run: python scripts/smoke_gateway.py
+      - name: Stop local gateway and services
+        if: always()
+        run: docker compose -f app/compose.yaml down --volumes
+      - run: python scripts/render_charts.py
+      - name: Test alert rules
+        run: docker run --rm --entrypoint /bin/promtool -v "$PWD/observability:/work" -w /work prom/prometheus:v3.5.0 test rules rules.test.yaml
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, prod]
+        layer: [platform, edge]
+    defaults:
+      run:
+        working-directory: iac/environments/${{ matrix.environment }}/${{ matrix.layer }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with: {terraform_version: '1.13.4', terraform_wrapper: false}
+      - run: terraform fmt -check -recursive ../../../..
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+      - run: terraform test
+  production-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with: {terraform_version: '1.13.4', terraform_wrapper: false}
+      - run: terraform init -backend=false -input=false
+        working-directory: iac/modules/platform
+      - run: terraform test
+        working-directory: iac/modules/platform
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          exit-code: '1'
+      - uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: iac
+          severity: HIGH,CRITICAL
+          exit-code: '1'

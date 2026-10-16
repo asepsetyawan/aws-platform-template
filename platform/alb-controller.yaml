@@ -1,0 +1,5 @@
+replicaCount: 2
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+# clusterName, region and vpcId supplied explicitly by installer.

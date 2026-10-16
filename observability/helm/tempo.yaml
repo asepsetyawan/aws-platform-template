@@ -1,0 +1,21 @@
+fullnameOverride: tempo
+serviceAccount: {create: true, name: tempo}
+persistence:
+  enabled: true
+  storageClassName: gp3
+  size: 10Gi
+tempo:
+  reportingEnabled: false
+  retention: 336h
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: REPLACE_TEMPO_BUCKET
+        region: ap-southeast-1
+      wal: {path: /var/tempo/wal}
+  receivers:
+    otlp:
+      protocols:
+        grpc: {endpoint: '0.0.0.0:4317'}
+        http: {endpoint: '0.0.0.0:4318'}

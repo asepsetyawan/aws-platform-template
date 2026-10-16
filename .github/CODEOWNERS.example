@@ -1,0 +1,9 @@
+# Copy to .github/CODEOWNERS and replace real GitHub teams.
+/iac/ @YOUR_ORG/platform
+/platform/ @YOUR_ORG/platform
+/observability/ @YOUR_ORG/sre
+/reliability/ @YOUR_ORG/sre
+/gitops/apps/overlays/prod/ @YOUR_ORG/production-approvers
+/.github/workflows/ @YOUR_ORG/platform
+/app/ @YOUR_ORG/application
+/app/api/catalog/ @YOUR_ORG/api-owners

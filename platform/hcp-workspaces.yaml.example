@@ -1,0 +1,13 @@
+# Setup inventory; not an executable HCP API definition.
+organization: REPLACE_HCP_ORG
+vcs_repository: asepsetyawan/aws-platform-template
+execution_mode: remote
+terraform_version: 1.13.4
+workspaces:
+  - {name: aws-dev-platform, working_directory: iac/environments/dev/platform, auto_apply: false}
+  - {name: aws-dev-edge, working_directory: iac/environments/dev/edge, auto_apply: false}
+  - {name: aws-staging-platform, working_directory: iac/environments/staging/platform, auto_apply: false}
+  - {name: aws-staging-edge, working_directory: iac/environments/staging/edge, auto_apply: false}
+  - {name: aws-prod-platform, working_directory: iac/environments/prod/platform, auto_apply: false}
+  - {name: aws-prod-edge, working_directory: iac/environments/prod/edge, auto_apply: false}
+# Configure trigger paths for root AND its shared module. Grant least-privilege team access.

@@ -1,0 +1,16 @@
+**/.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars
+*.tfvars.json
+*.auto.tfvars.json
+*.tfbackend
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pem
+*.key
+.generated/
+# Commit provider lock files and app dependency lock files.

@@ -1,0 +1,14 @@
+# Requires prometheus-blackbox-exporter installation; enable after edge URL is live.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: public-api
+  namespace: observability
+spec:
+  interval: 30s
+  module: http_2xx
+  prober:
+    url: blackbox-prometheus-blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static: ['https://REPLACE_PUBLIC_DOMAIN/api/hello']

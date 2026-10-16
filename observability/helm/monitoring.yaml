@@ -1,0 +1,60 @@
+fullnameOverride: monitoring
+kubeEtcd: {enabled: false}
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeProxy: {enabled: false}
+grafana:
+  serviceAccount: {create: true, name: grafana}
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  service: {type: ClusterIP}
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 10Gi
+  sidecar:
+    dashboards: {enabled: true, label: grafana_dashboard}
+  additionalDataSources:
+    - name: CloudWatch
+      uid: cloudwatch
+      type: cloudwatch
+      jsonData: {authType: default, defaultRegion: ap-southeast-1}
+    - {name: Loki, uid: loki, type: loki, access: proxy, url: 'http://loki-gateway.observability.svc.cluster.local'}
+    - {name: Tempo, uid: tempo, type: tempo, access: proxy, url: 'http://tempo.observability.svc.cluster.local:3200'}
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    podAntiAffinity: hard
+    podAntiAffinityTopologyKey: topology.kubernetes.io/zone
+    retention: 15d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    externalLabels: {platform: aws-template}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 30Gi}
+    resources:
+      requests: {cpu: 300m, memory: 1Gi}
+      limits: {memory: 3Gi}
+alertmanager:
+  config: {}
+  alertmanagerSpec:
+    replicas: 2
+    configSecret: platform-alertmanager
+    secrets: [oncall-webhook]
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 2Gi}

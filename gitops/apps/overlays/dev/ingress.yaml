@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: REPLACE_REGIONAL_ACM_CERTIFICATE_ARN
+    alb.ingress.kubernetes.io/security-group-prefix-lists: REPLACE_CLOUDFRONT_ORIGIN_PREFIX_LIST_ID
+    alb.ingress.kubernetes.io/healthcheck-path: /status/ready
+    alb.ingress.kubernetes.io/success-codes: '200'
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+    alb.ingress.kubernetes.io/healthcheck-port: '8100'
+spec:
+  ingressClassName: alb
+  rules:
+  - host: origin.dev.api.example.com
+    http:
+      paths:
+      - path: /api/
+        pathType: Prefix
+        backend:
+          service:
+            name: kong
+            port:
+              name: proxy

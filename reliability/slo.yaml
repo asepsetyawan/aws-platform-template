@@ -1,0 +1,14 @@
+service: platform-api
+window: 30d
+# Examples to agree with the business, not an SLA commitment.
+objectives:
+  availability:
+    target: 0.999
+    good: non-5xx application requests
+    total: all application requests excluding health/metrics endpoints
+  latency:
+    target: 0.95
+    threshold_seconds: 0.5
+recovery:
+  rto: DEFINE_WITH_BUSINESS
+  rpo: DEFINE_WITH_BUSINESS

@@ -1,0 +1,15 @@
+syntax = "proto3";
+package catalog.v1;
+option go_package = "example.com/aws-platform/app/gen/catalog/v1;catalogv1";
+
+service CatalogService {
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+}
+message GetProductRequest { string id = 1; }
+message Product {
+  string id = 1;
+  string name = 2;
+  int64 price_cents = 3;
+  string currency = 4;
+}
+message GetProductResponse { Product product = 1; }

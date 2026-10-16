@@ -1,0 +1,45 @@
+argo-cd:
+  version: 10.10.5
+  appVersion: v3.5.5
+  url: https://github.com/argoproj/argo-helm/releases/download/argo-cd-10.10.5/argo-cd-10.10.5.tgz
+  sha256: ba6447eeed42bc41d1f0527721047b236304e97669a7b6286d02be4a1644ba7a
+kube-prometheus-stack:
+  version: 92.9.0
+  appVersion: v0.94.1
+  url: https://github.com/prometheus-community/helm-charts/releases/download/kube-prometheus-stack-92.9.0/kube-prometheus-stack-92.9.0.tgz
+  sha256: d99bc9dca70d8a2844e59ca18e589bfd69014b5c46d0be05ba8587932048b07f
+loki:
+  version: 18.16.1
+  appVersion: 3.7.8
+  url: https://github.com/grafana-community/helm-charts/releases/download/loki-18.16.1/loki-18.16.1.tgz
+  sha256: 1dbf92565fe714409c63585b94c193e38195dce9a79428e0c0fe6128df098cc4
+tempo:
+  version: 3.2.0
+  appVersion: 3.1.0
+  url: https://github.com/grafana-community/helm-charts/releases/download/tempo-3.2.0/tempo-3.2.0.tgz
+  sha256: 3494fb80021722b1bc4d9403f9affbe3838a849fb6563e4db94c9271cc958e05
+alloy:
+  version: 1.13.1
+  appVersion: v1.20.1
+  url: https://github.com/grafana/helm-charts/releases/download/alloy-1.13.1/alloy-1.13.1.tgz
+  sha256: 6c2b7df23e39438bb11f1e1fcf19eb9eb7c8bfeab7d49b7c975b6212abd0f99a
+aws-load-balancer-controller:
+  version: 3.6.0
+  appVersion: v3.6.0
+  url: https://aws.github.io/eks-charts/aws-load-balancer-controller-3.6.0.tgz
+  sha256: ee0403fcd713d6f1d28b1ff17d0d6d47e011cc4dd727a0aed0d95ae46897226a
+metrics-server:
+  version: 3.14.0
+  appVersion: 0.9.0
+  url: https://github.com/kubernetes-sigs/metrics-server/releases/download/metrics-server-helm-chart-3.14.0/metrics-server-3.14.0.tgz
+  sha256: c2ca1185c01e6e7f53dd1b7d131f0c9b3fa50e003ed068b784563a1b5a3422a1
+cluster-autoscaler:
+  version: 9.59.0
+  appVersion: 1.35.0
+  url: https://github.com/kubernetes/autoscaler/releases/download/cluster-autoscaler-chart-9.59.0/cluster-autoscaler-9.59.0.tgz
+  sha256: 90276dafe65cf5d4328ef8313baf6cfb9d130683e0c9f3c28a03b4d8a9ed8f6e
+opentelemetry-collector:
+  version: 0.176.0
+  appVersion: 0.162.0
+  url: https://github.com/open-telemetry/opentelemetry-helm-charts/releases/download/opentelemetry-collector-0.176.0/opentelemetry-collector-0.176.0.tgz
+  sha256: 8d3f0c6efd2ae33a8c843b189b86d9f93f52422bccbb5be35c5ac24154e24868

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-staging
+  namespace: argocd
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/asepsetyawan/aws-platform-template.git
+    targetRevision: main
+    path: gitops/apps/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers: [/spec/replicas]

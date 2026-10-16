@@ -1,0 +1,33 @@
+# Schema confirmed against the locked grafana-community chart during render.
+deploymentMode: Monolithic
+loki:
+  auth_enabled: false
+  commonConfig: {replication_factor: 3}
+  schemaConfig:
+    configs:
+      - from: '2024-04-01'
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index: {prefix: index_, period: 24h}
+  storage:
+    type: s3
+    bucketNames: {chunks: REPLACE_LOKI_BUCKET, ruler: REPLACE_LOKI_BUCKET, admin: REPLACE_LOKI_BUCKET}
+    s3: {region: ap-southeast-1}
+  limits_config: {retention_period: 336h, allow_structured_metadata: true}
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+serviceAccount:
+  create: true
+  name: loki
+singleBinary:
+  replicas: 3
+  persistence: {enabled: true, storageClass: gp3, size: 10Gi}
+read: {replicas: 0}
+write: {replicas: 0}
+backend: {replicas: 0}
+gateway: {replicas: 2}
+chunksCache: {enabled: false}
+resultsCache: {enabled: false}
+minio: {enabled: false}

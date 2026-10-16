@@ -1,0 +1,9 @@
+rbac:
+  serviceAccount:
+    create: true
+    name: cluster-autoscaler
+extraArgs:
+  balance-similar-node-groups: 'true'
+  skip-nodes-with-local-storage: 'false'
+  expander: least-waste
+# Match image.tag to the EKS minor; installer requires an explicit version.
